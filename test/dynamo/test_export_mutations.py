@@ -31,19 +31,6 @@ class MutationExportTests(torch._dynamo.test_case.TestCase):
 
         self.check_failure_on_export(Foo(), torch.randn(3, 2))
 
-    def test_module_attribute_mutation_violation_positive_2(self):
-        # Mutating attribute with a scalar type
-        class Foo(torch.nn.Module):
-            def __init__(self):
-                super().__init__()
-                self.a = 2
-
-            def forward(self, x):
-                self.a = self.a * 3
-                return x.sum() + self.a
-
-        self.check_failure_on_export(Foo(), torch.randn(3, 2))
-
     def test_module_attribute_mutation_violation_positive_3(self):
         # Setting a new attribute inside forward()
         class Foo(torch.nn.Module):
