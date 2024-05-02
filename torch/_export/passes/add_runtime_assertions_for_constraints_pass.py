@@ -195,20 +195,12 @@ def _get_existing_inline_assertions(
         # Find all the existing inline assertions. They will look something like:
         # %_local_scalar_dense = call_function[target=torch.ops.aten._local_scalar_dense.default](args = (%arg1_1,), kwargs = {})
         # %ge = call_function[target=operator.ge](args = (%_local_scalar_dense, 0), kwargs = {})
-        # %scalar_tensor = call_function[target=torch.ops.aten.scalar_tensor.default](args = (%ge,), kwargs = {})
-        # %_assert_async = call_function[target=torch.ops.aten._assert_async.msg](args = (%scalar_tensor, "..."), kwargs = {})
+        # %_assert_scalar = call_function[target=torch.ops.aten._assert_scalar.default](args = (%scalar_tensor, "..."), kwargs = {})
         for node in module.graph.nodes:
-            if node.target != torch.ops.aten._assert_async.msg:
+            if node.target != torch.ops.aten._assert_scalar.default:
                 continue
 
-            scalar_tensor_arg = node.args[0]
-            if not (
-                scalar_tensor_arg.op == "call_function" and
-                scalar_tensor_arg.target == torch.ops.aten.scalar_tensor.default
-            ):
-                continue
-
-            compare_arg = scalar_tensor_arg.args[0]
+            compare_arg = node.args[0]
             if not (
                 compare_arg.op == "call_function" and
                 compare_arg.target in (operator.le, operator.ge) and
@@ -231,13 +223,24 @@ def _get_existing_inline_assertions(
                 compare_op = operator.ge
                 compare_int = -1 * compare_int
 
-            if not (
-                "val" in maybe_symint_arg.meta and
-                isinstance(maybe_symint_arg.meta["val"], torch.SymInt)
-            ):
-                continue
+                if not (
+                    "val" in maybe_symint_arg.meta and
+                    isinstance(maybe_symint_arg.meta["val"], torch.SymInt)
+                ):
+                    continue
 
-            symint = maybe_symint_arg.meta["val"].node.expr
+                symint = maybe_symint_arg.meta["val"].node.expr
+                symint = -1 * symint
+
+            else:
+                if not (
+                    "val" in maybe_symint_arg.meta and
+                    isinstance(maybe_symint_arg.meta["val"], torch.SymInt)
+                ):
+                    continue
+
+                symint = maybe_symint_arg.meta["val"].node.expr
+
             if not isinstance(symint, sympy.Symbol):
                 continue
 
